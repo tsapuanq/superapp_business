@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: superapp-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT bot:app
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GROQ_API_KEYS
+        sync: false
+      - key: DATABASE_URL
+        sync: false        # берётся из Supabase → Settings → Database → URI
+      - key: WEBHOOK_URL
+        sync: false        # https://superapp-bot.onrender.com/<BOT_TOKEN>
+      - key: PUSH_SECRET
+        sync: false

@@ -1,0 +1,6 @@
+.env
+requirements.txt
+__pycache__/
+*.pyc
+*.db
+datalake_json/
