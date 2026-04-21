@@ -1,4 +1,5 @@
 import json
+import re
 import time
 
 from config import LAKE_DIR
@@ -124,7 +125,7 @@ def match_prompts_to_query(
             if not prompt_text or prompt_text in seen_texts:
                 continue
             prompt_lower = prompt_text.lower()
-            hits = sum(1 for w in stems if w in prompt_lower)
+            hits = sum(1 for w in stems if re.search(r'\b' + re.escape(w), prompt_lower))
             if hits > 0:
                 base = hits * float(r.get("Priority_Score") or 1)
                 cat = r.get("Category_Tag", "")
