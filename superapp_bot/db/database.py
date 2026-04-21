@@ -73,6 +73,7 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS logs (
                     id         SERIAL PRIMARY KEY,
                     user_id    BIGINT,
+                    username   TEXT,
                     event_type TEXT,
                     content    TEXT,
                     metadata   TEXT,
@@ -253,7 +254,7 @@ def update_push_history(user_id: int, new_history: list):
             )
 
 
-def log_event(user_id: int, event_type: str, content: str, metadata: dict | None = None):
+def log_event(user_id: int, event_type: str, content: str, metadata: dict | None = None, username: str = ""):
     """Non-blocking: runs in background thread to avoid slowing down responses."""
     import threading
     def _write():
@@ -261,8 +262,8 @@ def log_event(user_id: int, event_type: str, content: str, metadata: dict | None
             with get_db() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
-                        "INSERT INTO logs (user_id, event_type, content, metadata) VALUES (%s, %s, %s, %s)",
-                        (user_id, event_type, content, json.dumps(metadata, ensure_ascii=False) if metadata else None)
+                        "INSERT INTO logs (user_id, username, event_type, content, metadata) VALUES (%s, %s, %s, %s, %s)",
+                        (user_id, username, event_type, content, json.dumps(metadata, ensure_ascii=False) if metadata else None)
                     )
         except Exception as e:
             print(f"[LOG] write error: {e}")

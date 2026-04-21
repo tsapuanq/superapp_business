@@ -60,7 +60,7 @@ def finish_survey(chat_id: int, user_id: int, username: str):
         answers["interests"] = interests
     save_user(user_id, username, answers)
     state["step"] = "done"
-    log_event(user_id, "survey_complete", "", {"profile": answers})
+    log_event(user_id, "survey_complete", "", {"profile": answers}, username=username)
     if user_id in user_histories:
         user_histories[user_id][0] = {"role": "system", "content": build_system_prompt(answers, user_id)}
 
@@ -90,7 +90,8 @@ def handle_survey(chat_id: int, user_id: int, text: str):
         return
 
     state["answers"][q["key"]] = text
-    log_event(user_id, "survey_answer", text, {"question_key": q["key"], "step": step})
+    username = state.get("username", "")
+    log_event(user_id, "survey_answer", text, {"question_key": q["key"], "step": step}, username=username)
     next_step = step + 1
     if next_step < len(SURVEY):
         state["step"] = next_step

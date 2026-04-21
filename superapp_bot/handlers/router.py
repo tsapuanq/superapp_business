@@ -26,10 +26,10 @@ def handle_message(msg: dict):
         send_message(chat_id, "Извини, я умею читать только текстовые сообщения 📝 Пожалуйста, напиши свой вопрос текстом.")
         return
 
-    log_event(user_id, "user_message", text, {"username": username})
+    log_event(user_id, "user_message", text, username=username)
 
     if text in _COMMANDS:
-        log_event(user_id, "command", text)
+        log_event(user_id, "command", text, username=username)
         _COMMANDS[text](chat_id, user_id, username)
         return
 

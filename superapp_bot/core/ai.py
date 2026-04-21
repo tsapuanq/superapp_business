@@ -173,7 +173,8 @@ def get_ai_reply(user_id: int, user_msg: str) -> str:
                 from db.database import log_event
                 reply = resp.choices[0].message.content
                 print(f"[GROQ] ✅ {model_name} key#{i}")
-                log_event(user_id, "bot_reply", reply, {"model": model_name, "key_index": i})
+                uname = user_state.get(user_id, {}).get("username", "")
+                log_event(user_id, "bot_reply", reply, {"model": model_name, "key_index": i}, username=uname)
                 found = True
                 break
             except Exception as e:

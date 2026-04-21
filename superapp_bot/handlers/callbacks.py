@@ -20,15 +20,16 @@ def handle_callback_query(cb: dict):
         _handle_interests_done(cb, user_id, chat_id)
         return
 
+    username = user_state.get(user_id, {}).get("username", "")
     if data == "fb_like":
         record_feedback(user_id, liked=True)
         user_histories.pop(user_id, None)
-        log_event(user_id, "feedback", "like")
+        log_event(user_id, "feedback", "like", username=username)
         _replace_feedback_button(cb, "✅ Спасибо за оценку!")
     elif data == "fb_dislike":
         record_feedback(user_id, liked=False)
         user_histories.pop(user_id, None)
-        log_event(user_id, "feedback", "dislike")
+        log_event(user_id, "feedback", "dislike", username=username)
         _replace_feedback_button(cb, "📝 Учту, покажу другое")
 
     answer_callback(cb["id"])
