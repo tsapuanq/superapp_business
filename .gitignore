@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 *.db
 datalake_json/
+*.DS_Store
