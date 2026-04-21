@@ -8,10 +8,9 @@ from psycopg2.extras import RealDictCursor
 from psycopg2.pool import ThreadedConnectionPool
 
 from config import DATABASE_URL, USERS_FILE
-from state import user_state
+from .state import user_state
 
 # ─── Connection pool ──────────────────────────────────────────────────────────
-# ThreadedConnectionPool is safe to use across multiple threads (Gunicorn --threads)
 
 _pool: ThreadedConnectionPool | None = None
 _pool_lock = threading.Lock()
@@ -155,7 +154,7 @@ def delete_user(user_id: int):
 
 
 def record_feedback(user_id: int, liked: bool):
-    from datalake import target_categories  # local import avoids circular dependency
+    from core.datalake import target_categories
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT profile, feedback FROM users WHERE user_id=%s", (user_id,))

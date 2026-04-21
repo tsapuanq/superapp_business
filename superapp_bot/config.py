@@ -3,7 +3,7 @@ from pathlib import Path
 from groq import Groq
 
 BASE_DIR = Path(__file__).parent
-LAKE_DIR = BASE_DIR / "datalake_json"
+LAKE_DIR = BASE_DIR / "data" / "datalake_json"
 USERS_FILE = BASE_DIR / "users.json"   # только для первичной миграции
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")

@@ -3,7 +3,7 @@ import re
 import time
 
 from config import LAKE_DIR
-from survey_data import PROFILE_CATEGORIES, AGE_CATEGORIES, GOAL_CATEGORIES
+from .survey_data import PROFILE_CATEGORIES, AGE_CATEGORIES, GOAL_CATEGORIES
 
 # ─── Lake cache ───────────────────────────────────────────────────────────────
 
@@ -146,7 +146,7 @@ def pick_triggers(
     per_node: int = 3,
     users: dict | None = None,
 ) -> list[dict]:
-    from database import category_boost  # local import avoids circular dependency
+    from db.database import category_boost
     lake = get_lake()
     cats = target_categories(profile)
     cat_set = set(cats)

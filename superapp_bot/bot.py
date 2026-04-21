@@ -12,7 +12,7 @@ import requests
 from flask import Flask, request
 
 from config import BOT_TOKEN, TG_API, WEBHOOK_URL
-from database import init_db, migrate_json, load_users, flush_context_if_needed, update_push_history, get_user_count
+from db.database import init_db, migrate_json, load_users, flush_context_if_needed, update_push_history, get_user_count
 from handlers import handle_callback_query, handle_message
 
 # ─── App ──────────────────────────────────────────────────────────────────────
@@ -24,9 +24,6 @@ migrate_json()
 
 
 # ─── Background processing ────────────────────────────────────────────────────
-# Telegram ждёт ответа максимум 5 секунд.
-# Groq API отвечает 1-3 секунды — при нагрузке Telegram начнёт повторять запрос.
-# Решение: сразу возвращаем 200, обрабатываем в фоновом потоке.
 
 def _process_update(update: dict):
     try:
@@ -46,7 +43,7 @@ def webhook():
     if not update:
         return "ok"
     threading.Thread(target=_process_update, args=(update,), daemon=True).start()
-    return "ok"  # Telegram получает 200 мгновенно
+    return "ok"
 
 
 # ─── Utility routes ───────────────────────────────────────────────────────────
@@ -59,7 +56,8 @@ def set_webhook():
 
 @app.route("/reload")
 def reload_lake():
-    import datalake, time
+    import core.datalake as datalake
+    import time
     datalake._lake_cache = datalake.load_lake()
     datalake._lake_loaded_at = time.time()
     total = sum(len(rows) for rows in datalake._lake_cache.values())
