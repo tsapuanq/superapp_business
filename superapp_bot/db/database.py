@@ -69,6 +69,16 @@ def init_db():
                     push_history TEXT    DEFAULT '[]'
                 )
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS logs (
+                    id         SERIAL PRIMARY KEY,
+                    user_id    BIGINT,
+                    event_type TEXT,
+                    content    TEXT,
+                    metadata   TEXT,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
 
 
 def migrate_json():
@@ -241,3 +251,19 @@ def update_push_history(user_id: int, new_history: list):
                 "UPDATE users SET push_history=%s WHERE user_id=%s",
                 (json.dumps(new_history, ensure_ascii=False), user_id)
             )
+
+
+def log_event(user_id: int, event_type: str, content: str, metadata: dict | None = None):
+    """Non-blocking: runs in background thread to avoid slowing down responses."""
+    import threading
+    def _write():
+        try:
+            with get_db() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "INSERT INTO logs (user_id, event_type, content, metadata) VALUES (%s, %s, %s, %s)",
+                        (user_id, event_type, content, json.dumps(metadata, ensure_ascii=False) if metadata else None)
+                    )
+        except Exception as e:
+            print(f"[LOG] write error: {e}")
+    threading.Thread(target=_write, daemon=True).start()

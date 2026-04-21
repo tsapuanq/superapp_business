@@ -1,7 +1,7 @@
 import json
 
 from db.state import user_state, user_histories
-from db.database import record_feedback
+from db.database import record_feedback, log_event
 from integrations.telegram_api import tg_post, answer_callback
 from core.survey_data import SURVEY
 from .survey import build_interests_keyboard, finish_survey, send_survey_question
@@ -23,10 +23,12 @@ def handle_callback_query(cb: dict):
     if data == "fb_like":
         record_feedback(user_id, liked=True)
         user_histories.pop(user_id, None)
+        log_event(user_id, "feedback", "like")
         _replace_feedback_button(cb, "✅ Спасибо за оценку!")
     elif data == "fb_dislike":
         record_feedback(user_id, liked=False)
         user_histories.pop(user_id, None)
+        log_event(user_id, "feedback", "dislike")
         _replace_feedback_button(cb, "📝 Учту, покажу другое")
 
     answer_callback(cb["id"])

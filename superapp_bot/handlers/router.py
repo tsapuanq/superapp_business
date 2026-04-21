@@ -1,5 +1,6 @@
 from config import groq_clients
 from db.state import user_state, user_histories
+from db.database import log_event
 from core.ai import get_ai_reply, restore_session
 from integrations.telegram_api import send_message, send_with_feedback
 from .survey import handle_survey
@@ -25,7 +26,10 @@ def handle_message(msg: dict):
         send_message(chat_id, "Извини, я умею читать только текстовые сообщения 📝 Пожалуйста, напиши свой вопрос текстом.")
         return
 
+    log_event(user_id, "user_message", text, {"username": username})
+
     if text in _COMMANDS:
+        log_event(user_id, "command", text)
         _COMMANDS[text](chat_id, user_id, username)
         return
 

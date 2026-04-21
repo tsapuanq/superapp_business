@@ -1,6 +1,6 @@
 from core.survey_data import SURVEY, VALID_ANSWERS
 from db.state import user_state, user_histories
-from db.database import save_user
+from db.database import save_user, log_event
 from integrations.telegram_api import send_message
 
 
@@ -60,6 +60,7 @@ def finish_survey(chat_id: int, user_id: int, username: str):
         answers["interests"] = interests
     save_user(user_id, username, answers)
     state["step"] = "done"
+    log_event(user_id, "survey_complete", "", {"profile": answers})
     if user_id in user_histories:
         user_histories[user_id][0] = {"role": "system", "content": build_system_prompt(answers, user_id)}
 
@@ -89,6 +90,7 @@ def handle_survey(chat_id: int, user_id: int, text: str):
         return
 
     state["answers"][q["key"]] = text
+    log_event(user_id, "survey_answer", text, {"question_key": q["key"], "step": step})
     next_step = step + 1
     if next_step < len(SURVEY):
         state["step"] = next_step
