@@ -4,7 +4,7 @@ from db.database import log_event
 from core.ai import get_ai_reply, restore_session
 from integrations.telegram_api import send_message, send_with_feedback
 from .survey import handle_survey
-from .commands import cmd_start, cmd_help, cmd_profile, cmd_stats, cmd_admin, cmd_reset
+from .commands import cmd_start, cmd_help, cmd_profile, cmd_stats, cmd_admin, cmd_reset, cmd_clear
 
 _COMMANDS = {
     "/start":   lambda chat_id, user_id, username: cmd_start(chat_id, user_id, username),
@@ -13,6 +13,7 @@ _COMMANDS = {
     "/stats":   lambda chat_id, user_id, username: cmd_stats(chat_id, user_id),
     "/admin":   lambda chat_id, user_id, username: cmd_admin(chat_id, user_id),
     "/reset":   lambda chat_id, user_id, username: cmd_reset(chat_id, user_id),
+    "/clear":   lambda chat_id, user_id, username: cmd_clear(chat_id, user_id),
 }
 
 

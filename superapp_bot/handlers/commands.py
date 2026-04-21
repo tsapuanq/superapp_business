@@ -20,7 +20,20 @@ def cmd_start(chat_id: int, user_id: int, username: str):
         )
     else:
         user_state[user_id] = {"step": 0, "answers": {}, "username": username, "selected_interests": set()}
-        send_message(chat_id, "Привет! Я AI-ассистент SuperApp 🇰🇿\n\nНесколько вопросов чтобы настроить под тебя 👇")
+        send_message(chat_id,
+            f"Привет, {username}! 👋\n\n"
+            "Я — AI-ассистент SuperApp Казахстана 🇰🇿\n\n"
+            "Помогаю с реальными финансовыми вопросами:\n"
+            "🧮 Считаю бюджет, ипотеку, накопления, налоги ИП\n"
+            "💬 Объясняю банковские продукты простым языком\n"
+            "🎯 Даю советы под твою ситуацию — не шаблонные\n\n"
+            "Например, можешь спросить:\n"
+            "— «Зарплата 350к, аренда 100к — сколько могу откладывать?»\n"
+            "— «Как открыть ИП и сколько платить налогов?»\n"
+            "— «За сколько накоплю 5 млн если откладывать 50к в месяц?»\n\n"
+            "Чтобы советы были точными — отвечу на 6 быстрых вопросов 👇\n"
+            "Займёт меньше минуты."
+        )
         send_survey_question(chat_id, 0, user_id)
 
 
@@ -32,7 +45,8 @@ def cmd_help(chat_id: int):
         "/start — начать или вернуться\n"
         "/profile — посмотреть профиль\n"
         "/stats — статистика персонализации\n"
-        "/reset — сбросить профиль\n"
+        "/clear — очистить историю диалога (профиль остаётся)\n"
+        "/reset — сбросить профиль полностью\n"
         "/help — эта справка\n\n"
         "Просто напиши свой вопрос 👇"
     )
@@ -98,3 +112,8 @@ def cmd_reset(chat_id: int, user_id: int):
     user_state.pop(user_id, None)
     user_histories.pop(user_id, None)
     send_message(chat_id, "Профиль удалён. Напиши /start чтобы начать заново.")
+
+
+def cmd_clear(chat_id: int, user_id: int):
+    user_histories.pop(user_id, None)
+    send_message(chat_id, "История диалога очищена ✅ Профиль сохранён. Задавай новый вопрос 👇")

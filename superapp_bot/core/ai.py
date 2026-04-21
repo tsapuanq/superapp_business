@@ -1,3 +1,4 @@
+import json
 import time
 
 from config import groq_clients
@@ -7,6 +8,7 @@ from db.database import (
     _context_lock, _dirty_context, flush_context_if_needed,
 )
 from .datalake import target_categories, match_prompts_to_query, pick_triggers
+from .calculators import TOOLS_SCHEMA, call_tool
 
 MAX_HISTORY_USERS = 200
 
@@ -164,14 +166,41 @@ def get_ai_reply(user_id: int, user_msg: str) -> str:
         for i, client in enumerate(groq_clients):
             try:
                 print(f"[GROQ] {model_name} key#{i}")
+                # Only 70b supports function calling reliably
+                tools = TOOLS_SCHEMA if "70b" in model_name else None
                 resp = client.chat.completions.create(
                     model=model_name,
                     messages=messages,
                     max_tokens=512,
                     temperature=0.7,
+                    **({"tools": tools, "tool_choice": "auto"} if tools else {}),
                 )
+                msg = resp.choices[0].message
+
+                # Handle function call
+                if tools and msg.tool_calls:
+                    tool_results = []
+                    for tc in msg.tool_calls:
+                        args = json.loads(tc.function.arguments)
+                        result = call_tool(tc.function.name, args)
+                        print(f"[TOOL] {tc.function.name}({args}) → {result}")
+                        tool_results.append({
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "content": json.dumps(result, ensure_ascii=False),
+                        })
+                    # Send tool results back to model for final answer
+                    followup = client.chat.completions.create(
+                        model=model_name,
+                        messages=messages + [msg] + tool_results,
+                        max_tokens=512,
+                        temperature=0.7,
+                    )
+                    reply = followup.choices[0].message.content
+                else:
+                    reply = msg.content
+
                 from db.database import log_event
-                reply = resp.choices[0].message.content
                 print(f"[GROQ] ✅ {model_name} key#{i}")
                 uname = user_state.get(user_id, {}).get("username", "")
                 log_event(user_id, "bot_reply", reply, {"model": model_name, "key_index": i}, username=uname)
