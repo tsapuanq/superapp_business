@@ -62,6 +62,7 @@ def get_starter_questions(profile: dict) -> str:
 
 
 def finish_survey(chat_id: int, user_id: int, username: str):
+    from ai import build_system_prompt
     state = user_state[user_id]
     answers = state.get("answers", {})
     interests = sorted(state.get("selected_interests", set()))
@@ -69,6 +70,9 @@ def finish_survey(chat_id: int, user_id: int, username: str):
         answers["interests"] = interests
     save_user(user_id, username, answers)
     state["step"] = "done"
+    # Rebuild system prompt now that profile is complete
+    if user_id in user_histories:
+        user_histories[user_id][0] = {"role": "system", "content": build_system_prompt(answers, user_id)}
 
     starters = get_starter_questions(answers)
     send_message(
