@@ -1,0 +1,5 @@
+flask
+gunicorn
+requests
+groq
+psycopg2-binary
