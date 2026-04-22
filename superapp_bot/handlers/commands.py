@@ -1,3 +1,5 @@
+import re
+
 from config import ADMIN_ID
 from db.state import user_state, user_histories
 from db.database import delete_user, load_users, category_boost, get_user_count, get_wishlist, update_wishlist
@@ -140,16 +142,20 @@ def cmd_wishlist(chat_id: int, user_id: int, args: str = ""):
         return
 
     if args:
-        parts = args.rsplit(" ", 1)
-        if len(parts) == 2:
-            name, raw = parts
-            raw = raw.replace("млн", "000000").replace("тыс", "000").replace(" ", "")
+        # Normalize shorthand amounts (handles "5млн", "5 млн", "5.5 млн")
+        normalized = re.sub(r'(\d+(?:\.\d+)?)\s*млрд', lambda m: str(int(float(m.group(1)) * 1_000_000_000)), args)
+        normalized = re.sub(r'(\d+(?:\.\d+)?)\s*млн',  lambda m: str(int(float(m.group(1)) * 1_000_000)), normalized)
+        normalized = re.sub(r'(\d+(?:\.\d+)?)\s*тыс',  lambda m: str(int(float(m.group(1)) * 1_000)), normalized)
+        # Split: everything before last number = name, last number = target
+        m = re.search(r'^(.*?)\s*(\d+(?:\.\d+)?)\s*$', normalized.strip())
+        if m and m.group(1).strip():
+            name = m.group(1).strip()
             try:
-                target = float(raw)
-                goals.append({"name": name.strip(), "target": target, "saved": 0})
+                target = float(m.group(2))
+                goals.append({"name": name, "target": target, "saved": 0})
                 update_wishlist(user_id, goals)
                 send_message(chat_id,
-                    f"Цель «{name.strip()}» добавлена 🎯\n"
+                    f"Цель «{name}» добавлена 🎯\n"
                     f"Нужно накопить: {int(target):,}₸\n\n"
                     f"Чтобы посчитать план накоплений — напиши:\n"
                     f"«Хочу накопить {int(target):,}₸, могу откладывать X тенге в месяц»"
@@ -157,7 +163,7 @@ def cmd_wishlist(chat_id: int, user_id: int, args: str = ""):
                 return
             except ValueError:
                 pass
-        send_message(chat_id, "Формат: /wishlist <Название> <Сумма>\nПример: /wishlist Машина 5000000")
+        send_message(chat_id, "Формат: /wishlist <Название> <Сумма>\nПримеры:\n/wishlist Машина 5000000\n/wishlist Квартира 30млн")
         return
 
     if not goals:
