@@ -89,9 +89,9 @@ def _handle_interests_done(cb: dict, user_id: int, chat_id: int):
 
 
 def _handle_quick_question(cb: dict, user_id: int, chat_id: int, data: str):
-    from core.ai import get_ai_reply
+    from core.ai import get_ai_reply, restore_session
     from .survey import get_starter_buttons
-    from db.database import load_users
+    from db.database import load_users, get_wishlist
     answer_callback(cb["id"])
     # Remove buttons so user can't tap twice
     tg_post("editMessageReplyMarkup", {
@@ -105,10 +105,13 @@ def _handle_quick_question(cb: dict, user_id: int, chat_id: int, data: str):
         try:
             idx = int(data[len("quick_q_"):])
             profile = load_users().get(str(user_id), {}).get("profile", {})
-            buttons = get_starter_buttons(profile)
-            if 0 <= idx < len(buttons):
-                question = buttons[idx][1]
-        except (ValueError, Exception):
+            # Only reconstruct if profile is real (not empty after /reset)
+            if profile.get("employment"):
+                buttons = get_starter_buttons(profile)
+                if 0 <= idx < len(buttons):
+                    question = buttons[idx][1]
+                    restore_session(user_id)  # repopulate user_state so AI sees real profile
+        except ValueError:
             pass
     if not question:
         send_message(chat_id, "Напиши свой вопрос 👇")
@@ -116,13 +119,12 @@ def _handle_quick_question(cb: dict, user_id: int, chat_id: int, data: str):
     send_typing(chat_id)
     reply = get_ai_reply(user_id, question)
     send_with_feedback(chat_id, reply)
-    # Offer to save savings goal to wishlist (once per unique goal amount)
+    # Offer to save savings goal to wishlist (check against real wishlist, survives restarts)
     pending = user_state.get(user_id, {}).pop("pending_wishlist", None)
     if pending and pending.get("goal"):
         goal_amount = int(pending["goal"])
-        offered = user_state.setdefault(user_id, {}).setdefault("wishlist_offered", set())
-        if goal_amount not in offered:
-            offered.add(goal_amount)
+        goals = get_wishlist(user_id)
+        if not any(int(g.get("target", 0)) == goal_amount for g in goals):
             kb = {"inline_keyboard": [[
                 {"text": "💾 Сохранить цель в Wishlist", "callback_data": f"save_goal_{goal_amount}"},
             ]]}

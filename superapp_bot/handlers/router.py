@@ -2,6 +2,7 @@ from config import groq_clients
 from db.state import user_state, user_histories
 from db.database import log_event
 from core.ai import get_ai_reply, restore_session
+from db.database import get_wishlist
 from integrations.telegram_api import send_message, send_with_feedback, send_typing
 from .survey import handle_survey
 from .commands import cmd_start, cmd_help, cmd_profile, cmd_stats, cmd_admin, cmd_reset, cmd_clear, cmd_calc, cmd_wishlist
@@ -57,13 +58,12 @@ def handle_message(msg: dict):
     reply = get_ai_reply(user_id, text)
     send_with_feedback(chat_id, reply)
 
-    # Offer to save savings goal to wishlist (once per unique goal amount)
+    # Offer to save savings goal to wishlist (check against real wishlist, survives restarts)
     pending = user_state.get(user_id, {}).pop("pending_wishlist", None)
     if pending and pending.get("goal"):
         goal_amount = int(pending["goal"])
-        offered = user_state.setdefault(user_id, {}).setdefault("wishlist_offered", set())
-        if goal_amount not in offered:
-            offered.add(goal_amount)
+        goals = get_wishlist(user_id)
+        if not any(int(g.get("target", 0)) == goal_amount for g in goals):
             kb = {"inline_keyboard": [[
                 {"text": "💾 Сохранить цель в Wishlist", "callback_data": f"save_goal_{goal_amount}"},
             ]]}
