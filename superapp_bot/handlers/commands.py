@@ -4,7 +4,7 @@ from config import ADMIN_ID
 from db.state import user_state, user_histories
 from db.database import delete_user, load_users, category_boost, get_user_count, get_wishlist, update_wishlist
 from core.datalake import target_categories, get_lake
-from integrations.telegram_api import send_message
+from integrations.telegram_api import send_message, MAIN_MENU_KEYBOARD
 from core.ai import restore_session
 from .survey import send_survey_question, get_starter_questions
 
@@ -18,7 +18,8 @@ def cmd_start(chat_id: int, user_id: int, username: str):
             f"С возвращением! Твой профиль загружен ✅\n\n"
             f"Я — твой AI-ассистент. Могу помочь с финансами, бизнесом или покупками.\n\n"
             f"Спроси меня о чём угодно, например:\n\n{starters}\n\n"
-            f"Задавай вопрос 👇"
+            f"Задавай вопрос 👇",
+            reply_markup=MAIN_MENU_KEYBOARD,
         )
     else:
         user_state[user_id] = {"step": 0, "answers": {}, "username": username, "selected_interests": set()}

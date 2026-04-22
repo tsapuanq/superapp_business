@@ -4,6 +4,18 @@ import requests
 from config import TG_API
 
 
+# Постоянная клавиатура внизу чата — главное меню, всегда видимое пользователю.
+# Telegram покажет её один раз и будет держать до явного remove_keyboard.
+MAIN_MENU_KEYBOARD = {
+    "keyboard": [
+        [{"text": "🧮 Калькулятор"}, {"text": "🎯 Мои цели"}],
+        [{"text": "📊 Профиль"}, {"text": "❓ Помощь"}],
+    ],
+    "resize_keyboard": True,
+    "is_persistent": True,
+}
+
+
 def tg_post(method: str, payload: dict, timeout: int = 5):
     try:
         requests.post(f"{TG_API}/{method}", json=payload, timeout=timeout)

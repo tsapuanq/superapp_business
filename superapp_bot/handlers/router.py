@@ -19,6 +19,14 @@ _COMMANDS = {
     "/wishlist": lambda chat_id, user_id, username, args="": cmd_wishlist(chat_id, user_id, args),
 }
 
+# Кнопки постоянной клавиатуры → команды. Нажатие кнопки приходит как обычный текст.
+_MENU_BUTTON_TO_COMMAND = {
+    "🧮 Калькулятор": "/calc",
+    "🎯 Мои цели":    "/wishlist",
+    "📊 Профиль":     "/profile",
+    "❓ Помощь":      "/help",
+}
+
 
 def handle_message(msg: dict):
     chat_id = msg["chat"]["id"]
@@ -31,6 +39,10 @@ def handle_message(msg: dict):
         return
 
     log_event(user_id, "user_message", text, username=username)
+
+    # Нажатие на кнопку постоянного меню = запуск соответствующей команды.
+    if text in _MENU_BUTTON_TO_COMMAND:
+        text = _MENU_BUTTON_TO_COMMAND[text]
 
     cmd_parts = text.split(" ", 1)
     cmd_key = cmd_parts[0]
