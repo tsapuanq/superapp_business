@@ -107,6 +107,7 @@ def build_system_prompt(profile: dict, user_id: int = 0, users: dict | None = No
 - Никогда не упоминай "приложение в разработке", "когда SuperApp будет запущен" и подобные фразы — это демо-прототип, не превью реального продукта
 - Никогда не запрашивай: доход, номер карты, ИИН, пароли
 - ВАЖНО — понимай сокращения и суммы: млн = миллион, тыс = тысяча, млрд = миллиард. Анализируй масштаб суммы! 130 млн тенге = 130 000 000 тенге ≈ $260 000 — это БОЛЬШОЙ бюджет. НЕ говори "ограниченный бюджет" если сумма > 10 млн тенге. Ориентиры: средняя зарплата в КЗ ~350 000₸, квартира в Алматы ~30-80 млн₸.
+- КАЛЬКУЛЯТОР: вызывай функции расчёта ТОЛЬКО если пользователь назвал конкретные числа. Если чисел нет — спроси их у пользователя простым вопросом, НЕ вызывай функцию с текстом вместо чисел.
 
 РЕЖИМ ЭКСПЕРТА (ДЛЯ ПРЕЗЕНТАЦИИ/ЖЮРИ):
 Если вопрос явно про продукт-менеджмент, юнит-экономику или оценку эффективности продукта (например: "как замерить retention", "что такое CAC", "объясни LTV", "как оценить product-market fit") — отвечай как Senior Product Manager.
@@ -180,8 +181,18 @@ def get_ai_reply(user_id: int, user_msg: str) -> str:
                 # Handle function call
                 if tools and msg.tool_calls:
                     tool_results = []
+                    invalid = False
                     for tc in msg.tool_calls:
                         args = json.loads(tc.function.arguments)
+                        has_invalid = any(
+                            isinstance(v, str)
+                            for v in args.values()
+                            if not isinstance(v, list)
+                        )
+                        if has_invalid:
+                            print(f"[TOOL] skipped {tc.function.name} — non-numeric args")
+                            invalid = True
+                            break
                         result = call_tool(tc.function.name, args)
                         print(f"[TOOL] {tc.function.name}({args}) → {result}")
                         tool_results.append({
@@ -189,14 +200,18 @@ def get_ai_reply(user_id: int, user_msg: str) -> str:
                             "tool_call_id": tc.id,
                             "content": json.dumps(result, ensure_ascii=False),
                         })
-                    # Send tool results back to model for final answer
-                    followup = client.chat.completions.create(
-                        model=model_name,
-                        messages=messages + [msg] + tool_results,
-                        max_tokens=512,
-                        temperature=0.7,
-                    )
-                    reply = followup.choices[0].message.content
+
+                    if invalid or not tool_results:
+                        # Model tried to call tool without numbers — use text reply as-is
+                        reply = msg.content or "Уточни пожалуйста — назови конкретные суммы, и я посчитаю."
+                    else:
+                        followup = client.chat.completions.create(
+                            model=model_name,
+                            messages=messages + [msg] + tool_results,
+                            max_tokens=512,
+                            temperature=0.7,
+                        )
+                        reply = followup.choices[0].message.content
                 else:
                     reply = msg.content
 
