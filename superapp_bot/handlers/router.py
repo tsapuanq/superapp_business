@@ -57,11 +57,14 @@ def handle_message(msg: dict):
     reply = get_ai_reply(user_id, text)
     send_with_feedback(chat_id, reply)
 
-    # Offer to save savings goal to wishlist
+    # Offer to save savings goal to wishlist (once per unique goal amount)
     pending = user_state.get(user_id, {}).pop("pending_wishlist", None)
     if pending and pending.get("goal"):
         goal_amount = int(pending["goal"])
-        kb = {"inline_keyboard": [[
-            {"text": "💾 Сохранить цель в Wishlist", "callback_data": f"save_goal_{goal_amount}"},
-        ]]}
-        send_message(chat_id, "Хочешь сохранить эту цель в Wishlist?", reply_markup=kb)
+        offered = user_state.setdefault(user_id, {}).setdefault("wishlist_offered", set())
+        if goal_amount not in offered:
+            offered.add(goal_amount)
+            kb = {"inline_keyboard": [[
+                {"text": "💾 Сохранить цель в Wishlist", "callback_data": f"save_goal_{goal_amount}"},
+            ]]}
+            send_message(chat_id, "Хочешь сохранить эту цель в Wishlist?", reply_markup=kb)

@@ -90,6 +90,8 @@ def _handle_interests_done(cb: dict, user_id: int, chat_id: int):
 
 def _handle_quick_question(cb: dict, user_id: int, chat_id: int, data: str):
     from core.ai import get_ai_reply
+    from .survey import get_starter_buttons
+    from db.database import load_users
     answer_callback(cb["id"])
     # Remove buttons so user can't tap twice
     tg_post("editMessageReplyMarkup", {
@@ -98,11 +100,33 @@ def _handle_quick_question(cb: dict, user_id: int, chat_id: int, data: str):
         "reply_markup": json.dumps({"inline_keyboard": []}),
     })
     question = user_state.get(user_id, {}).get("quick_questions", {}).get(data)
+    # Fallback: reconstruct from profile if state was lost (e.g. server restart)
     if not question:
+        try:
+            idx = int(data[len("quick_q_"):])
+            profile = load_users().get(str(user_id), {}).get("profile", {})
+            buttons = get_starter_buttons(profile)
+            if 0 <= idx < len(buttons):
+                question = buttons[idx][1]
+        except (ValueError, Exception):
+            pass
+    if not question:
+        send_message(chat_id, "Напиши свой вопрос 👇")
         return
     send_typing(chat_id)
     reply = get_ai_reply(user_id, question)
     send_with_feedback(chat_id, reply)
+    # Offer to save savings goal to wishlist (once per unique goal amount)
+    pending = user_state.get(user_id, {}).pop("pending_wishlist", None)
+    if pending and pending.get("goal"):
+        goal_amount = int(pending["goal"])
+        offered = user_state.setdefault(user_id, {}).setdefault("wishlist_offered", set())
+        if goal_amount not in offered:
+            offered.add(goal_amount)
+            kb = {"inline_keyboard": [[
+                {"text": "💾 Сохранить цель в Wishlist", "callback_data": f"save_goal_{goal_amount}"},
+            ]]}
+            send_message(chat_id, "Хочешь сохранить эту цель в Wishlist?", reply_markup=kb)
 
 
 def _handle_save_goal(cb: dict, user_id: int, chat_id: int, data: str):
