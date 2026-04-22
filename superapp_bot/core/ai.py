@@ -210,6 +210,11 @@ def get_ai_reply(user_id: int, user_msg: str) -> str:
                             break
                         result = call_tool(tc.function.name, args)
                         print(f"[TOOL] {tc.function.name}({args}) → {result}")
+                        # Store savings goal info for wishlist offer
+                        if tc.function.name == "calculate_savings_goal" and "error" not in result:
+                            user_state.setdefault(user_id, {})["pending_wishlist"] = {
+                                "goal": args.get("goal", 0)
+                            }
                         tool_results.append({
                             "role": "tool",
                             "tool_call_id": tc.id,

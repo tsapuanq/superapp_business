@@ -125,11 +125,37 @@ def cmd_calc(chat_id: int):
 
 def cmd_wishlist(chat_id: int, user_id: int, args: str = ""):
     """
-    /wishlist             — показать цели
-    /wishlist Машина 5000000  — добавить цель
-    /wishlist del 1       — удалить цель по номеру
+    /wishlist                  — показать цели
+    /wishlist Машина 5000000   — добавить цель
+    /wishlist saved 1 50000    — обновить прогресс
+    /wishlist del 1            — удалить цель по номеру
     """
     goals = get_wishlist(user_id)
+
+    if args.startswith("saved "):
+        parts = args[6:].split()
+        if len(parts) == 2:
+            try:
+                idx = int(parts[0]) - 1
+                amount_raw = parts[1].replace("млн", "000000").replace("тыс", "000")
+                amount = float(amount_raw)
+                if 0 <= idx < len(goals):
+                    goals[idx]["saved"] = amount
+                    update_wishlist(user_id, goals)
+                    g = goals[idx]
+                    target = int(g["target"])
+                    pct = int(amount / target * 100) if target else 0
+                    send_message(chat_id,
+                        f"Прогресс обновлён ✅\n"
+                        f"«{g['name']}»: {int(amount):,}₸ из {target:,}₸ ({pct}%)"
+                    )
+                else:
+                    send_message(chat_id, "Нет цели с таким номером. Посмотри /wishlist")
+            except ValueError:
+                send_message(chat_id, "Формат: /wishlist saved <номер> <сумма>\nПример: /wishlist saved 1 50000")
+        else:
+            send_message(chat_id, "Формат: /wishlist saved <номер> <сумма>\nПример: /wishlist saved 1 50000")
+        return
 
     if args.startswith("del "):
         try:

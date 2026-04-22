@@ -56,3 +56,12 @@ def handle_message(msg: dict):
     send_typing(chat_id)
     reply = get_ai_reply(user_id, text)
     send_with_feedback(chat_id, reply)
+
+    # Offer to save savings goal to wishlist
+    pending = user_state.get(user_id, {}).pop("pending_wishlist", None)
+    if pending and pending.get("goal"):
+        goal_amount = int(pending["goal"])
+        kb = {"inline_keyboard": [[
+            {"text": "💾 Сохранить цель в Wishlist", "callback_data": f"save_goal_{goal_amount}"},
+        ]]}
+        send_message(chat_id, "Хочешь сохранить эту цель в Wishlist?", reply_markup=kb)

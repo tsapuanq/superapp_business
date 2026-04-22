@@ -1,8 +1,8 @@
 import json
 
 from db.state import user_state, user_histories
-from db.database import record_feedback, log_event
-from integrations.telegram_api import tg_post, answer_callback
+from db.database import record_feedback, log_event, get_wishlist, update_wishlist
+from integrations.telegram_api import tg_post, answer_callback, send_typing, send_with_feedback, send_message
 from core.survey_data import SURVEY
 from .survey import build_interests_keyboard, finish_survey, send_survey_question
 
@@ -18,6 +18,14 @@ def handle_callback_query(cb: dict):
 
     if data == "interests_done":
         _handle_interests_done(cb, user_id, chat_id)
+        return
+
+    if data.startswith("quick_q_"):
+        _handle_quick_question(cb, user_id, chat_id, data)
+        return
+
+    if data.startswith("save_goal_"):
+        _handle_save_goal(cb, user_id, chat_id, data)
         return
 
     username = user_state.get(user_id, {}).get("username", "")
@@ -78,6 +86,45 @@ def _handle_interests_done(cb: dict, user_id: int, chat_id: int):
         else:
             finish_survey(chat_id, user_id, username)
     answer_callback(cb["id"])
+
+
+def _handle_quick_question(cb: dict, user_id: int, chat_id: int, data: str):
+    from core.ai import get_ai_reply
+    answer_callback(cb["id"])
+    # Remove buttons so user can't tap twice
+    tg_post("editMessageReplyMarkup", {
+        "chat_id": chat_id,
+        "message_id": cb["message"]["message_id"],
+        "reply_markup": json.dumps({"inline_keyboard": []}),
+    })
+    question = user_state.get(user_id, {}).get("quick_questions", {}).get(data)
+    if not question:
+        return
+    send_typing(chat_id)
+    reply = get_ai_reply(user_id, question)
+    send_with_feedback(chat_id, reply)
+
+
+def _handle_save_goal(cb: dict, user_id: int, chat_id: int, data: str):
+    answer_callback(cb["id"])
+    try:
+        amount = float(data[len("save_goal_"):])
+    except ValueError:
+        return
+    goals = get_wishlist(user_id)
+    name = f"Накопление {int(amount):,}₸".replace(",", " ")
+    goals.append({"name": name, "target": amount, "saved": 0})
+    update_wishlist(user_id, goals)
+    tg_post("editMessageReplyMarkup", {
+        "chat_id": chat_id,
+        "message_id": cb["message"]["message_id"],
+        "reply_markup": json.dumps({"inline_keyboard": [[{"text": f"✅ Сохранено в Wishlist", "callback_data": "noop"}]]}),
+    })
+    send_message(chat_id,
+        f"Цель «{name}» добавлена в Wishlist 🎯\n"
+        f"Посмотреть: /wishlist\n"
+        f"Обновить прогресс: /wishlist saved 1 <сумма>"
+    )
 
 
 def _replace_feedback_button(cb: dict, label: str):

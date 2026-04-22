@@ -51,6 +51,41 @@ def get_starter_questions(profile: dict) -> str:
         return "🔹 Как начать инвестировать?\n🔹 Как выгоднее копить на квартиру?\n🔹 На что влияет кредитная история?"
 
 
+def get_starter_buttons(profile: dict) -> list[tuple[str, str]]:
+    """Returns list of (button_label, question_text) for quick-start inline keyboard."""
+    emp = profile.get("employment", "")
+    if emp == "Свой бизнес / ИП":
+        return [
+            ("📋 Налоги ИП", "Какие налоги платит ИП в Казахстане?"),
+            ("💳 Расчётный счёт", "Как выбрать расчётный счёт для ИП?"),
+            ("📈 Кредит на бизнес", "Как получить кредит на развитие бизнеса?"),
+        ]
+    elif emp == "Студент / школьник":
+        return [
+            ("💰 Первые накопления", "Как начать копить со стипендии?"),
+            ("💳 Карта студенту", "Какую карту выбрать студенту?"),
+            ("🎯 Подработки", "Где студенту найти подработку в Казахстане?"),
+        ]
+    elif emp == "Фриланс / самозанятый":
+        return [
+            ("📋 Налоги самозанятого", "Как платить налоги самозанятому в Казахстане?"),
+            ("💰 Нестабильный доход", "Как копить при нестабильном доходе?"),
+            ("🏦 Куда вложить", "Куда вложить первые накопления?"),
+        ]
+    elif emp == "Пенсионер":
+        return [
+            ("🛡 Защита от мошенников", "Как защититься от мошенников в интернете?"),
+            ("💰 Сохранить сбережения", "Как сохранить сбережения от инфляции?"),
+            ("📱 Переводы", "Как делать переводы через SuperApp?"),
+        ]
+    else:
+        return [
+            ("🏠 Накопить на квартиру", "Как выгоднее копить на квартиру?"),
+            ("📊 Кредитная история", "На что влияет кредитная история?"),
+            ("💰 Начать инвестировать", "Как начать инвестировать в Казахстане?"),
+        ]
+
+
 def finish_survey(chat_id: int, user_id: int, username: str):
     from core.ai import build_system_prompt
     state = user_state[user_id]
@@ -64,13 +99,23 @@ def finish_survey(chat_id: int, user_id: int, username: str):
     if user_id in user_histories:
         user_histories[user_id][0] = {"role": "system", "content": build_system_prompt(answers, user_id)}
 
-    starters = get_starter_questions(answers)
+    buttons = get_starter_buttons(answers)
+    # Store questions so callback handler can look them up
+    state["quick_questions"] = {f"quick_q_{i}": q[1] for i, q in enumerate(buttons)}
+
+    rows = []
+    for i in range(0, len(buttons), 2):
+        row = [{"text": buttons[j][0], "callback_data": f"quick_q_{j}"}
+               for j in range(i, min(i + 2, len(buttons)))]
+        rows.append(row)
+    kb = {"inline_keyboard": rows}
+
     send_message(
         chat_id,
-        f"Профиль сохранён ✅\n\nЯ готов помогать! Задай мне любой вопрос, например:\n\n"
-        f"{starters}\n\nЖду твой вопрос 👇",
+        "Профиль сохранён ✅\n\nВыбери тему или напиши свой вопрос 👇",
         reply_markup={"remove_keyboard": True},
     )
+    send_message(chat_id, "С чего начнём?", reply_markup=kb)
 
 
 def handle_survey(chat_id: int, user_id: int, text: str):
