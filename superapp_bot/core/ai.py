@@ -15,6 +15,13 @@ MAX_HISTORY_USERS = 200
 
 _FUNC_TAG_RE = re.compile(r"<function=[^>]+>.*?</function>", re.DOTALL)
 
+_TOOL_MISSING_PROMPTS = {
+    "calculate_budget": "Чтобы посчитать бюджет — напиши свой ежемесячный доход и основные расходы (аренда, еда, транспорт). Например: «Зарплата 350к, аренда 120к, еда 60к»",
+    "calculate_mortgage": "Чтобы посчитать ипотеку — напиши стоимость жилья, первоначальный взнос, срок и ставку. Например: «Квартира 25 млн, взнос 5 млн, 15 лет, ставка 14%»",
+    "calculate_savings_goal": "Чтобы посчитать накопления — напиши цель и сколько можешь откладывать в месяц. Например: «Хочу накопить 3 млн, могу 80к в месяц»",
+    "calculate_ip_tax": "Чтобы посчитать налоги ИП — напиши свой ежемесячный доход. Например: «Доход 500к в месяц»",
+}
+
 
 def _strip_function_tags(text: str) -> str:
     """Remove raw <function=...>...</function> blobs that 8b model leaks into text."""
@@ -210,8 +217,12 @@ def get_ai_reply(user_id: int, user_msg: str) -> str:
                         })
 
                     if invalid or not tool_results:
-                        # Model tried to call tool without numbers — use text reply as-is
-                        reply = msg.content or "Уточни пожалуйста — назови конкретные суммы, и я посчитаю."
+                        first_tool_name = msg.tool_calls[0].function.name if msg.tool_calls else ""
+                        reply = (
+                            msg.content
+                            or _TOOL_MISSING_PROMPTS.get(first_tool_name)
+                            or "Уточни пожалуйста — назови конкретные суммы, и я посчитаю."
+                        )
                     else:
                         followup = client.chat.completions.create(
                             model=model_name,

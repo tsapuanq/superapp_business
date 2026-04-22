@@ -2,18 +2,20 @@ from config import groq_clients
 from db.state import user_state, user_histories
 from db.database import log_event
 from core.ai import get_ai_reply, restore_session
-from integrations.telegram_api import send_message, send_with_feedback
+from integrations.telegram_api import send_message, send_with_feedback, send_typing
 from .survey import handle_survey
-from .commands import cmd_start, cmd_help, cmd_profile, cmd_stats, cmd_admin, cmd_reset, cmd_clear
+from .commands import cmd_start, cmd_help, cmd_profile, cmd_stats, cmd_admin, cmd_reset, cmd_clear, cmd_calc, cmd_wishlist
 
 _COMMANDS = {
-    "/start":   lambda chat_id, user_id, username: cmd_start(chat_id, user_id, username),
-    "/help":    lambda chat_id, user_id, username: cmd_help(chat_id),
-    "/profile": lambda chat_id, user_id, username: cmd_profile(chat_id, user_id),
-    "/stats":   lambda chat_id, user_id, username: cmd_stats(chat_id, user_id),
-    "/admin":   lambda chat_id, user_id, username: cmd_admin(chat_id, user_id),
-    "/reset":   lambda chat_id, user_id, username: cmd_reset(chat_id, user_id),
-    "/clear":   lambda chat_id, user_id, username: cmd_clear(chat_id, user_id),
+    "/start":   lambda chat_id, user_id, username, args="": cmd_start(chat_id, user_id, username),
+    "/help":    lambda chat_id, user_id, username, args="": cmd_help(chat_id),
+    "/profile": lambda chat_id, user_id, username, args="": cmd_profile(chat_id, user_id),
+    "/stats":   lambda chat_id, user_id, username, args="": cmd_stats(chat_id, user_id),
+    "/admin":   lambda chat_id, user_id, username, args="": cmd_admin(chat_id, user_id),
+    "/reset":   lambda chat_id, user_id, username, args="": cmd_reset(chat_id, user_id),
+    "/clear":   lambda chat_id, user_id, username, args="": cmd_clear(chat_id, user_id),
+    "/calc":    lambda chat_id, user_id, username, args="": cmd_calc(chat_id),
+    "/wishlist": lambda chat_id, user_id, username, args="": cmd_wishlist(chat_id, user_id, args),
 }
 
 
@@ -29,9 +31,12 @@ def handle_message(msg: dict):
 
     log_event(user_id, "user_message", text, username=username)
 
-    if text in _COMMANDS:
+    cmd_parts = text.split(" ", 1)
+    cmd_key = cmd_parts[0]
+    cmd_args = cmd_parts[1] if len(cmd_parts) > 1 else ""
+    if cmd_key in _COMMANDS:
         log_event(user_id, "command", text, username=username)
-        _COMMANDS[text](chat_id, user_id, username)
+        _COMMANDS[cmd_key](chat_id, user_id, username, cmd_args)
         return
 
     state = user_state.get(user_id)
@@ -48,5 +53,6 @@ def handle_message(msg: dict):
         send_message(chat_id, "⚠️ GROQ_API_KEY не настроен.")
         return
 
+    send_typing(chat_id)
     reply = get_ai_reply(user_id, text)
     send_with_feedback(chat_id, reply)

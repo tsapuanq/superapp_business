@@ -1,6 +1,6 @@
 from config import ADMIN_ID
 from db.state import user_state, user_histories
-from db.database import delete_user, load_users, category_boost, get_user_count
+from db.database import delete_user, load_users, category_boost, get_user_count, get_wishlist, update_wishlist
 from core.datalake import target_categories, get_lake
 from integrations.telegram_api import send_message
 from core.ai import restore_session
@@ -43,6 +43,8 @@ def cmd_help(chat_id: int):
         "Отвечаю на вопросы по банкингу, финансам и сервисам SuperApp KZ\n\n"
         "Команды:\n"
         "/start — начать или вернуться\n"
+        "/calc — калькуляторы (бюджет, ипотека, накопления, налоги ИП)\n"
+        "/wishlist — финансовые цели и накопления\n"
         "/profile — посмотреть профиль\n"
         "/stats — статистика персонализации\n"
         "/clear — очистить историю диалога (профиль остаётся)\n"
@@ -105,6 +107,80 @@ def cmd_admin(chat_id: int, user_id: int):
         send_message(chat_id, f"🔐 Админ-панель\n👥 Всего пользователей в базе: {count}")
     else:
         send_message(chat_id, "Команда не найдена.")
+
+
+def cmd_calc(chat_id: int):
+    send_message(chat_id,
+        "🧮 Калькуляторы SuperApp\n\n"
+        "Просто напиши запрос с цифрами — я посчитаю сам:\n\n"
+        "💰 Бюджет:\n«Зарплата 350к, аренда 120к, еда 60к, транспорт 20к»\n\n"
+        "🏠 Ипотека:\n«Квартира 25 млн, взнос 5 млн, 15 лет, ставка 14%»\n\n"
+        "🎯 Накопления:\n«Хочу накопить 3 млн, откладываю 80к в месяц»\n\n"
+        "📋 Налоги ИП:\n«Доход 500к в месяц, упрощёнка»\n\n"
+        "Задавай вопрос 👇"
+    )
+
+
+def cmd_wishlist(chat_id: int, user_id: int, args: str = ""):
+    """
+    /wishlist             — показать цели
+    /wishlist Машина 5000000  — добавить цель
+    /wishlist del 1       — удалить цель по номеру
+    """
+    goals = get_wishlist(user_id)
+
+    if args.startswith("del "):
+        try:
+            idx = int(args[4:].strip()) - 1
+            removed = goals.pop(idx)
+            update_wishlist(user_id, goals)
+            send_message(chat_id, f"Цель «{removed['name']}» удалена ✅")
+        except (ValueError, IndexError):
+            send_message(chat_id, "Укажи номер цели, например: /wishlist del 1")
+        return
+
+    if args:
+        parts = args.rsplit(" ", 1)
+        if len(parts) == 2:
+            name, raw = parts
+            raw = raw.replace("млн", "000000").replace("тыс", "000").replace(" ", "")
+            try:
+                target = float(raw)
+                goals.append({"name": name.strip(), "target": target, "saved": 0})
+                update_wishlist(user_id, goals)
+                send_message(chat_id,
+                    f"Цель «{name.strip()}» добавлена 🎯\n"
+                    f"Нужно накопить: {int(target):,}₸\n\n"
+                    f"Чтобы посчитать план накоплений — напиши:\n"
+                    f"«Хочу накопить {int(target):,}₸, могу откладывать X тенге в месяц»"
+                )
+                return
+            except ValueError:
+                pass
+        send_message(chat_id, "Формат: /wishlist <Название> <Сумма>\nПример: /wishlist Машина 5000000")
+        return
+
+    if not goals:
+        send_message(chat_id,
+            "📋 Wishlist пустой\n\n"
+            "Добавь финансовую цель:\n"
+            "/wishlist Машина 5000000\n"
+            "/wishlist Квартира 30000000\n"
+            "/wishlist Отпуск 500000"
+        )
+        return
+
+    lines = ["📋 Твои финансовые цели:\n"]
+    for i, g in enumerate(goals, 1):
+        target = int(g["target"])
+        saved = int(g.get("saved", 0))
+        pct = int(saved / target * 100) if target else 0
+        bar = "█" * (pct // 10) + "░" * (10 - pct // 10)
+        lines.append(f"{i}. {g['name']} — {target:,}₸")
+        lines.append(f"   [{bar}] {pct}% накоплено\n")
+    lines.append("Удалить: /wishlist del <номер>")
+    lines.append("Добавить: /wishlist <Название> <Сумма>")
+    send_message(chat_id, "\n".join(lines))
 
 
 def cmd_reset(chat_id: int, user_id: int):

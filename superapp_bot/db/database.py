@@ -66,8 +66,12 @@ def init_db():
                     profile      TEXT    DEFAULT '{}',
                     feedback     TEXT    DEFAULT '{}',
                     last_context TEXT,
-                    push_history TEXT    DEFAULT '[]'
+                    push_history TEXT    DEFAULT '[]',
+                    wishlist     TEXT    DEFAULT '[]'
                 )
+            """)
+            cur.execute("""
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS wishlist TEXT DEFAULT '[]'
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS logs (
@@ -128,7 +132,7 @@ def load_users() -> dict:
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(
-                    "SELECT user_id, username, profile, feedback, last_context, push_history FROM users"
+                    "SELECT user_id, username, profile, feedback, last_context, push_history, wishlist FROM users"
                 )
                 rows = cur.fetchall()
         _users_cache = {}
@@ -139,6 +143,7 @@ def load_users() -> dict:
                 "feedback":     json.loads(row["feedback"] or "{}"),
                 "last_context": json.loads(row["last_context"]) if row["last_context"] else None,
                 "push_history": json.loads(row["push_history"] or "[]"),
+                "wishlist":     json.loads(row["wishlist"] or "[]"),
             }
         _users_loaded_at = time.time()
     return _users_cache
@@ -243,6 +248,24 @@ def get_user_count() -> int:
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM users")
             return cur.fetchone()[0]
+
+
+def get_wishlist(user_id: int) -> list:
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT wishlist FROM users WHERE user_id=%s", (user_id,))
+            row = cur.fetchone()
+    return json.loads(row["wishlist"] or "[]") if row else []
+
+
+def update_wishlist(user_id: int, wishlist: list):
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET wishlist=%s WHERE user_id=%s",
+                (json.dumps(wishlist, ensure_ascii=False), user_id)
+            )
+    _invalidate_cache()
 
 
 def update_push_history(user_id: int, new_history: list):

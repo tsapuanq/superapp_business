@@ -26,5 +26,9 @@ def send_with_feedback(chat_id: int, text: str):
     send_message(chat_id, text, reply_markup=kb)
 
 
+def send_typing(chat_id: int):
+    tg_post("sendChatAction", {"chat_id": chat_id, "action": "typing"})
+
+
 def answer_callback(callback_id: str):
     tg_post("answerCallbackQuery", {"callback_query_id": callback_id})
