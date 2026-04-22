@@ -1,4 +1,5 @@
 import json
+import re
 import time
 
 from config import groq_clients
@@ -11,6 +12,13 @@ from .datalake import target_categories, match_prompts_to_query, pick_triggers
 from .calculators import TOOLS_SCHEMA, call_tool
 
 MAX_HISTORY_USERS = 200
+
+_FUNC_TAG_RE = re.compile(r"<function=[^>]+>.*?</function>", re.DOTALL)
+
+
+def _strip_function_tags(text: str) -> str:
+    """Remove raw <function=...>...</function> blobs that 8b model leaks into text."""
+    return _FUNC_TAG_RE.sub("", text).strip()
 
 
 def _evict_histories_if_needed():
@@ -232,6 +240,7 @@ def get_ai_reply(user_id: int, user_msg: str) -> str:
         if found:
             break
 
+    reply = _strip_function_tags(reply)
     user_histories[user_id].append({"role": "assistant", "content": reply})
     return reply
 
