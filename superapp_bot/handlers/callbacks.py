@@ -93,12 +93,6 @@ def _handle_quick_question(cb: dict, user_id: int, chat_id: int, data: str):
     from .survey import get_starter_buttons
     from db.database import load_users, get_wishlist
     answer_callback(cb["id"])
-    # Remove buttons so user can't tap twice
-    tg_post("editMessageReplyMarkup", {
-        "chat_id": chat_id,
-        "message_id": cb["message"]["message_id"],
-        "reply_markup": json.dumps({"inline_keyboard": []}),
-    })
     question = user_state.get(user_id, {}).get("quick_questions", {}).get(data)
     # Fallback: reconstruct from profile if state was lost (e.g. server restart)
     if not question:
@@ -114,8 +108,20 @@ def _handle_quick_question(cb: dict, user_id: int, chat_id: int, data: str):
         except ValueError:
             pass
     if not question:
+        # Remove buttons silently
+        tg_post("editMessageReplyMarkup", {
+            "chat_id": chat_id,
+            "message_id": cb["message"]["message_id"],
+            "reply_markup": json.dumps({"inline_keyboard": []}),
+        })
         send_message(chat_id, "Напиши свой вопрос 👇")
         return
+    # Replace "С чего начнём?" with the selected question so user sees context
+    tg_post("editMessageText", {
+        "chat_id": chat_id,
+        "message_id": cb["message"]["message_id"],
+        "text": f"💬 {question}",
+    })
     send_typing(chat_id)
     reply = get_ai_reply(user_id, question)
     send_with_feedback(chat_id, reply)
