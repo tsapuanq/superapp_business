@@ -1,3 +1,5 @@
+import re
+
 from config import groq_clients
 from db.state import user_state, user_histories
 from db.database import log_event
@@ -19,13 +21,21 @@ _COMMANDS = {
     "/wishlist": lambda chat_id, user_id, username, args="": cmd_wishlist(chat_id, user_id, args),
 }
 
-# Кнопки постоянной клавиатуры → команды. Нажатие кнопки приходит как обычный текст.
-_MENU_BUTTON_TO_COMMAND = {
-    "🧮 Калькулятор": "/calc",
-    "🎯 Мои цели":    "/wishlist",
-    "📊 Профиль":     "/profile",
-    "❓ Помощь":      "/help",
-}
+def _parse_monthly(text: str):
+    """Extract a monthly savings amount from user input. Returns int or None."""
+    t = text.strip()
+    t = re.sub(r'(\d+(?:\.\d+)?)\s*млн', lambda m: str(int(float(m.group(1)) * 1_000_000)), t)
+    t = re.sub(r'(\d+(?:\.\d+)?)\s*тыс', lambda m: str(int(float(m.group(1)) * 1_000)), t)
+    t = re.sub(r'(\d+(?:\.\d+)?)\s*к(?!\w)', lambda m: str(int(float(m.group(1)) * 1_000)), t)
+    t = t.replace(" ", "").replace(",", "").replace("₸", "")
+    m = re.search(r'\d+(?:\.\d+)?', t)
+    if m:
+        try:
+            val = int(float(m.group()))
+            return val if val > 0 else None
+        except ValueError:
+            return None
+    return None
 
 
 def handle_message(msg: dict):
@@ -39,10 +49,6 @@ def handle_message(msg: dict):
         return
 
     log_event(user_id, "user_message", text, username=username)
-
-    # Нажатие на кнопку постоянного меню = запуск соответствующей команды.
-    if text in _MENU_BUTTON_TO_COMMAND:
-        text = _MENU_BUTTON_TO_COMMAND[text]
 
     cmd_parts = text.split(" ", 1)
     cmd_key = cmd_parts[0]
@@ -65,6 +71,13 @@ def handle_message(msg: dict):
     if not groq_clients:
         send_message(chat_id, "⚠️ GROQ_API_KEY не настроен.")
         return
+
+    # Если юзер отвечает на вопрос "сколько откладывать" — подставляем полный запрос к AI
+    pending_calc = user_state.get(user_id, {}).pop("pending_calc", None)
+    if pending_calc:
+        monthly = _parse_monthly(text)
+        if monthly:
+            text = f"Хочу накопить {int(pending_calc):,}₸, могу откладывать {monthly:,}₸ в месяц"
 
     send_typing(chat_id)
     reply = get_ai_reply(user_id, text)

@@ -1,7 +1,7 @@
 from core.survey_data import SURVEY, VALID_ANSWERS
 from db.state import user_state, user_histories
 from db.database import save_user, log_event
-from integrations.telegram_api import send_message, MAIN_MENU_KEYBOARD
+from integrations.telegram_api import send_message
 
 
 def build_interests_keyboard(selected: set) -> dict:
@@ -110,11 +110,10 @@ def finish_survey(chat_id: int, user_id: int, username: str):
         rows.append(row)
     kb = {"inline_keyboard": rows}
 
-    # Ставим постоянную клавиатуру внизу — юзер всегда видит главные функции.
     send_message(
         chat_id,
         "Профиль сохранён ✅\n\nВыбери тему или напиши свой вопрос 👇",
-        reply_markup=MAIN_MENU_KEYBOARD,
+        reply_markup={"remove_keyboard": True},
     )
     send_message(chat_id, "С чего начнём?", reply_markup=kb)
 

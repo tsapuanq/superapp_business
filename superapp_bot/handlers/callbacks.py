@@ -28,6 +28,10 @@ def handle_callback_query(cb: dict):
         _handle_save_goal(cb, user_id, chat_id, data)
         return
 
+    if data.startswith("calc_goal_"):
+        _handle_calc_goal(cb, user_id, chat_id, data)
+        return
+
     username = user_state.get(user_id, {}).get("username", "")
     if data == "fb_like":
         record_feedback(user_id, liked=True)
@@ -157,6 +161,23 @@ def _handle_save_goal(cb: dict, user_id: int, chat_id: int, data: str):
         f"Посмотреть: /wishlist\n"
         f"Обновить прогресс: /wishlist saved 1 <сумма>"
     )
+
+
+def _handle_calc_goal(cb: dict, user_id: int, chat_id: int, data: str):
+    answer_callback(cb["id"])
+    try:
+        amount = int(float(data[len("calc_goal_"):]))
+    except ValueError:
+        return
+    user_state.setdefault(user_id, {})["pending_calc"] = amount
+    tg_post("editMessageReplyMarkup", {
+        "chat_id": chat_id,
+        "message_id": cb["message"]["message_id"],
+        "reply_markup": json.dumps({"inline_keyboard": [[
+            {"text": "📊 Считаем план...", "callback_data": "noop"}
+        ]]}),
+    })
+    send_message(chat_id, "Сколько можешь откладывать в месяц? Напиши сумму 👇")
 
 
 def _replace_feedback_button(cb: dict, label: str):

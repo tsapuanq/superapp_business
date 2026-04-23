@@ -4,7 +4,7 @@ from config import ADMIN_ID
 from db.state import user_state, user_histories
 from db.database import delete_user, load_users, category_boost, get_user_count, get_wishlist, update_wishlist
 from core.datalake import target_categories, get_lake
-from integrations.telegram_api import send_message, MAIN_MENU_KEYBOARD
+from integrations.telegram_api import send_message
 from core.ai import restore_session
 from .survey import send_survey_question, get_starter_questions
 
@@ -19,7 +19,6 @@ def cmd_start(chat_id: int, user_id: int, username: str):
             f"Я — твой AI-ассистент. Могу помочь с финансами, бизнесом или покупками.\n\n"
             f"Спроси меня о чём угодно, например:\n\n{starters}\n\n"
             f"Задавай вопрос 👇",
-            reply_markup=MAIN_MENU_KEYBOARD,
         )
     else:
         user_state[user_id] = {"step": 0, "answers": {}, "username": username, "selected_interests": set()}
@@ -181,11 +180,13 @@ def cmd_wishlist(chat_id: int, user_id: int, args: str = ""):
                 target = float(m.group(2))
                 goals.append({"name": name, "target": target, "saved": 0})
                 update_wishlist(user_id, goals)
+                kb = {"inline_keyboard": [[
+                    {"text": "📊 Рассчитать план накоплений", "callback_data": f"calc_goal_{int(target)}"},
+                ]]}
                 send_message(chat_id,
                     f"Цель «{name}» добавлена 🎯\n"
-                    f"Нужно накопить: {int(target):,}₸\n\n"
-                    f"Чтобы посчитать план накоплений — напиши:\n"
-                    f"«Хочу накопить {int(target):,}₸, могу откладывать X тенге в месяц»"
+                    f"Нужно накопить: {int(target):,}₸",
+                    reply_markup=kb,
                 )
                 return
             except ValueError:
