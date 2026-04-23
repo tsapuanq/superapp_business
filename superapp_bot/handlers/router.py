@@ -74,6 +74,7 @@ def handle_message(msg: dict):
 
     # Если юзер отвечает на вопрос "сколько откладывать" — подставляем полный запрос к AI
     pending_calc = user_state.get(user_id, {}).pop("pending_calc", None)
+    monthly = None
     if pending_calc:
         monthly = _parse_monthly(text)
         if monthly:
@@ -82,6 +83,14 @@ def handle_message(msg: dict):
     send_typing(chat_id)
     reply = get_ai_reply(user_id, text)
     send_with_feedback(chat_id, reply)
+
+    # После успешного расчёта — кнопки следующего шага, чтобы юзер не оказывался в пустоте
+    if pending_calc and monthly:
+        kb = {"inline_keyboard": [[
+            {"text": "🔄 Пересчитать", "callback_data": f"calc_goal_{pending_calc}"},
+            {"text": "📋 Мои цели", "callback_data": "show_wishlist"},
+        ]]}
+        send_message(chat_id, "Хочешь пересчитать с другой суммой?", reply_markup=kb)
 
     # Offer to save savings goal to wishlist (check against real wishlist, survives restarts)
     pending = user_state.get(user_id, {}).pop("pending_wishlist", None)

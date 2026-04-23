@@ -32,6 +32,12 @@ def handle_callback_query(cb: dict):
         _handle_calc_goal(cb, user_id, chat_id, data)
         return
 
+    if data == "show_wishlist":
+        answer_callback(cb["id"])
+        from .commands import cmd_wishlist
+        cmd_wishlist(chat_id, user_id)
+        return
+
     username = user_state.get(user_id, {}).get("username", "")
     if data == "fb_like":
         record_feedback(user_id, liked=True)
