@@ -23,10 +23,10 @@ superapp_bot/
 │
 ├── handlers/               ← Обработка входящих сообщений
 │   ├── __init__.py         ← Экспорт handle_message, handle_callback_query
-│   ├── survey.py           ← UI и flow опроса
-│   ├── commands.py         ← /start /help /profile /stats /admin /reset
-│   ├── callbacks.py        ← Inline-кнопки (лайки, интересы)
-│   └── router.py           ← Роутер входящих сообщений
+│   ├── survey.py           ← UI и flow опроса, quick-темы после анкеты
+│   ├── commands.py         ← /start /help /profile /stats /admin /reset /calc /wishlist /clear
+│   ├── callbacks.py        ← Inline-кнопки (лайки, интересы, quick-темы, wishlist, calc-goal)
+│   └── router.py           ← Роутер входящих сообщений, pending_calc flow
 │
 ├── integrations/           ← Внешние API
 │   └── telegram_api.py     ← Обёртки над Telegram Bot API
@@ -51,9 +51,10 @@ Telegram → POST /BOT_TOKEN → Flask (bot.py)
 Flask мгновенно возвращает 200 OK
         ↓
 Фоновый поток обрабатывает сообщение:
-  ├─ Новый пользователь → опрос (handlers/survey.py)
-  ├─ Команда /start /help /profile → handlers/commands.py
-  └─ Вопрос → core/ai.py → Groq API → ответ пользователю
+  ├─ Новый пользователь → опрос → quick-темы (handlers/survey.py)
+  ├─ Команда /start /help /profile /calc /wishlist /clear → handlers/commands.py
+  ├─ Inline-кнопка → handlers/callbacks.py
+  └─ Вопрос → pending_calc? → core/ai.py → Groq API → ответ + кнопки
 ```
 
 ### Как JSON из Data Lake попадают в LLM
@@ -136,9 +137,38 @@ CREATE TABLE users (
     profile      TEXT    DEFAULT '{}',
     feedback     TEXT    DEFAULT '{}',
     last_context TEXT,
-    push_history TEXT    DEFAULT '[]'
+    push_history TEXT    DEFAULT '[]',
+    wishlist     TEXT    DEFAULT '[]'
 );
 ```
+
+---
+
+## Функциональность бота
+
+### Персонализация
+- При первом запуске бот проводит анкету (6 вопросов): возраст, занятость, цель, семья, город, интересы
+- После анкеты показывает inline-кнопки с релевантными темами (по профилю)
+- Ответы AI фильтруются через Data Lake с учётом профиля и фидбэка (👍/👎)
+
+### Калькуляторы (`/calc`)
+Распознаёт запросы с цифрами и считает:
+- **Бюджет** — `«Зарплата 350к, аренда 120к, еда 60к»`
+- **Ипотека** — `«Квартира 25 млн, взнос 5 млн, 15 лет, ставка 14%»`
+- **Накопления** — `«Хочу накопить 3 млн, откладываю 80к в месяц»`
+- **Налоги ИП** — `«Доход 500к в месяц, упрощёнка»`
+
+### Wishlist (`/wishlist`)
+Финансовые цели с отслеживанием прогресса:
+
+| Команда | Действие |
+|---|---|
+| `/wishlist` | Показать все цели с прогресс-баром |
+| `/wishlist Машина 5000000` | Добавить цель (поддерживает `5млн`, `500тыс`) |
+| `/wishlist saved 1 50000` | Обновить накопленную сумму |
+| `/wishlist del 1` | Удалить цель |
+
+После добавления цели бот предлагает кнопку **"📊 Рассчитать план накоплений"** — юзер вводит ежемесячную сумму, AI считает срок. После расчёта появляются кнопки **"🔄 Пересчитать"** и **"📋 Мои цели"**.
 
 ---
 
